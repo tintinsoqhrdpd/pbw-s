@@ -1,0 +1,1655 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Tv, Users, Vote, Trophy, Archive, LogIn, LogOut, Settings, 
+  Plus, Edit2, Trash2, Eye, EyeOff, AlertTriangle, CheckCircle, Clock, 
+  ChevronRight, Sparkles, Flame, UserCheck, UserX, Lock, Unlock, 
+  Radio, FileText, Menu, X, Camera, Award, Star, Zap, ShieldAlert, RotateCcw, Play, Square, ArrowLeft
+} from 'lucide-react';
+
+const INITIAL_HOUSEMATES = [
+  { id: 'HM-001', name: 'Aurelius Vance', bio: 'The Stoic philosopher from Cebu with an iron will.', photo: 'https://placehold.co/400x500/0284c7/ffffff?text=Aurelius', status: 'Active', code: 'AV123' },
+  { id: 'HM-002', name: 'Beatrix Thorne', bio: 'High-society heiress testing her grit against reality.', photo: 'https://placehold.co/400x500/0284c7/ffffff?text=Beatrix', status: 'Active', code: 'BT456' },
+  { id: 'HM-003', name: 'Cassian Reed', bio: 'Charismatic street-smart strategist and artist.', photo: 'https://placehold.co/400x500/0284c7/ffffff?text=Cassian', status: 'Active', code: 'CR789' },
+  { id: 'HM-004', name: 'Diana Sterling', bio: 'Fierce investigative journalist seeking the ultimate truth.', photo: 'https://placehold.co/400x500/0284c7/ffffff?text=Diana', status: 'Active', code: 'DS321' }
+];
+
+const INITIAL_ROUNDS = [
+  { id: 'round-1', week: 1, status: 'Voting Open', method: 'Online', confirmed: true, nominees: ['HM-001', 'HM-002', 'HM-003'] }
+];
+
+const INITIAL_ANNOUNCEMENTS = [
+  { id: 1, title: 'Welcome to Plato Edition!', date: '2026-11-01', content: 'The iconic Big Sister house is officially open with high-energy broadcast style. Let the games begin!' },
+  { id: 2, title: 'Week 1 Nominations Open', date: '2026-11-05', content: 'Housemates have cast their fates. Official nominees are now posted for public voting.' }
+];
+
+const INITIAL_ARCHIVES = [
+  { week: 1, title: 'Season Premiere & Week 1 Kickoff', summary: 'Four housemates entered the vibrant PBB estate under the watchful eye of Big Sister.' }
+];
+
+const INITIAL_WEEKLY_STATUSES = {
+  'HM-001': { 1: 'Nominated' },
+  'HM-002': { 1: 'Nominated' },
+  'HM-003': { 1: 'Nominated' },
+  'HM-004': { 1: 'Safe' }
+};
+
+export default function App() {
+  const [housemates, setHousemates] = useState(() => {
+    const saved = localStorage.getItem('pbs_housemates_v7');
+    return saved ? JSON.parse(saved) : INITIAL_HOUSEMATES;
+  });
+  
+  const [rounds, setRounds] = useState(() => {
+    const saved = localStorage.getItem('pbs_rounds_v7');
+    return saved ? JSON.parse(saved) : INITIAL_ROUNDS;
+  });
+
+  const [announcements, setAnnouncements] = useState(() => {
+    const saved = localStorage.getItem('pbs_announcements_v7');
+    return saved ? JSON.parse(saved) : INITIAL_ANNOUNCEMENTS;
+  });
+
+  const [archives, setArchives] = useState(() => {
+    const saved = localStorage.getItem('pbs_archives_v7');
+    return saved ? JSON.parse(saved) : INITIAL_ARCHIVES;
+  });
+
+  const [nominations, setNominations] = useState(() => {
+    const saved = localStorage.getItem('pbs_nominations_v7');
+    return saved ? JSON.parse(saved) : {}; 
+  });
+
+  const [votes, setVotes] = useState(() => {
+    const saved = localStorage.getItem('pbs_votes_v7');
+    return saved ? JSON.parse(saved) : { 
+      1: { save: { 'HM-001': 1420, 'HM-002': 980, 'HM-003': 1150 }, evict: { 'HM-001': 300, 'HM-002': 850, 'HM-003': 600 } } 
+    };
+  });
+
+  const [weeklyStatuses, setWeeklyStatuses] = useState(() => {
+    const saved = localStorage.getItem('pbs_weekly_statuses_v7');
+    return saved ? JSON.parse(saved) : INITIAL_WEEKLY_STATUSES;
+  });
+
+  const [resultsConfig, setResultsConfig] = useState(() => {
+    const saved = localStorage.getItem('pbs_results_config_v7');
+    return saved ? JSON.parse(saved) : { showPartial: true, showFinal: false, evictionPublished: false, votingManuallyClosed: false };
+  });
+
+  const [activeTab, setActiveTab] = useState('home'); 
+  const [prevTab, setPrevTab] = useState('home');
+  const [currentUser, setCurrentUser] = useState(null); 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [modalMessage, setModalMessage] = useState(null); 
+
+  const navigateTo = (tab) => {
+    setPrevTab(activeTab);
+    setActiveTab(tab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const goBack = () => {
+    setActiveTab(prevTab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  useEffect(() => { localStorage.setItem('pbs_housemates_v7', JSON.stringify(housemates)); }, [housemates]);
+  useEffect(() => { localStorage.setItem('pbs_rounds_v7', JSON.stringify(rounds)); }, [rounds]);
+  useEffect(() => { localStorage.setItem('pbs_announcements_v7', JSON.stringify(announcements)); }, [announcements]);
+  useEffect(() => { localStorage.setItem('pbs_archives_v7', JSON.stringify(archives)); }, [archives]);
+  useEffect(() => { localStorage.setItem('pbs_nominations_v7', JSON.stringify(nominations)); }, [nominations]);
+  useEffect(() => { localStorage.setItem('pbs_votes_v7', JSON.stringify(votes)); }, [votes]);
+  useEffect(() => { localStorage.setItem('pbs_weekly_statuses_v7', JSON.stringify(weeklyStatuses)); }, [weeklyStatuses]);
+  useEffect(() => { localStorage.setItem('pbs_results_config_v7', JSON.stringify(resultsConfig)); }, [resultsConfig]);
+
+  const showAlert = (msg) => setModalMessage(msg);
+  const activeRound = rounds[rounds.length - 1] || { week: 1, status: 'Closed', nominees: [], method: 'Online' };
+  const currentWeekVotes = votes[activeRound.week] || { save: {}, evict: {} };
+
+  return (
+    <div className="min-h-screen bg-[#061e38] text-slate-100 font-sans selection:bg-[#fbbf24] selection:text-black transition-all duration-300">
+      <header className="sticky top-0 z-50 bg-[#0284c7] shadow-xl border-b-4 border-[#fbbf24] backdrop-blur-md bg-opacity-95">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+          <div className="flex items-center space-x-3 cursor-pointer group" onClick={() => navigateTo('home')}>
+            <div className="w-12 h-12 bg-blue-950 rounded-full border-2 border-[#fbbf24] flex items-center justify-center shadow-lg transform group-hover:scale-110 transition duration-300 relative overflow-hidden">
+              <div className="w-6 h-4 rounded-full border-2 border-[#fbbf24] bg-[#0284c7] flex items-center justify-center">
+                <div className="w-2 h-2 rounded-full bg-[#fbbf24] animate-pulse"></div>
+              </div>
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-black tracking-wider text-white drop-shadow-md">PINOY BIG SISTER</h1>
+              <p className="text-[10px] tracking-[0.25em] font-bold text-[#fbbf24]">PLATO EDITION • LIVE BROADCAST</p>
+            </div>
+          </div>
+
+          <nav className="hidden lg:flex items-center space-x-2 text-sm font-bold">
+            <button onClick={() => navigateTo('home')} className={`px-4 py-2 rounded-xl transition duration-300 transform active:scale-95 ${activeTab === 'home' ? 'bg-blue-950 text-[#fbbf24] shadow' : 'text-white hover:bg-blue-600'}`}>Home</button>
+            <button onClick={() => navigateTo('housemates')} className={`px-4 py-2 rounded-xl transition duration-300 transform active:scale-95 ${activeTab === 'housemates' ? 'bg-blue-950 text-[#fbbf24] shadow' : 'text-white hover:bg-blue-600'}`}>Housemates</button>
+            <button onClick={() => navigateTo('tracker')} className={`px-4 py-2 rounded-xl transition duration-300 transform active:scale-95 ${activeTab === 'tracker' ? 'bg-blue-950 text-[#fbbf24] shadow' : 'text-white hover:bg-blue-600'}`}>Weekly Tracker</button>
+            <button onClick={() => navigateTo('nominations')} className={`px-4 py-2 rounded-xl transition duration-300 transform active:scale-95 ${activeTab === 'nominations' ? 'bg-blue-950 text-[#fbbf24] shadow' : 'text-white hover:bg-blue-600'}`}>Nominations</button>
+            <button onClick={() => navigateTo('voting')} className={`px-4 py-2 rounded-xl transition duration-300 transform active:scale-95 flex items-center space-x-1 ${activeTab === 'voting' ? 'bg-blue-950 text-[#fbbf24] shadow' : 'text-white hover:bg-blue-600'}`}>
+              <Vote className="w-4 h-4 text-[#fbbf24]" />
+              <span>Voting Arena</span>
+            </button>
+            <button onClick={() => navigateTo('results')} className={`px-4 py-2 rounded-xl transition duration-300 transform active:scale-95 ${activeTab === 'results' ? 'bg-blue-950 text-[#fbbf24] shadow' : 'text-white hover:bg-blue-600'}`}>Results</button>
+            <button onClick={() => navigateTo('archives')} className={`px-4 py-2 rounded-xl transition duration-300 transform active:scale-95 ${activeTab === 'archives' ? 'bg-blue-950 text-[#fbbf24] shadow' : 'text-white hover:bg-blue-600'}`}>Archives</button>
+          </nav>
+
+          <div className="flex items-center space-x-3">
+            {currentUser ? (
+              <div className="flex items-center space-x-3 bg-blue-950 px-4 py-2 rounded-2xl border-2 border-[#fbbf24]">
+                <span className="text-xs text-[#fbbf24] font-bold hidden sm:inline">
+                  {currentUser.role === 'admin' ? '⭐ Administrator' : currentUser.housemate.name}
+                </span>
+                <button 
+                  onClick={() => { setCurrentUser(null); navigateTo('home'); }} 
+                  className="text-red-400 hover:text-red-300 text-xs flex items-center space-x-1 transition"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="hidden sm:flex items-center space-x-2">
+                <button 
+                  onClick={() => navigateTo('admin')} 
+                  className="px-4 py-2 text-xs font-black bg-[#fbbf24] text-blue-950 rounded-xl hover:bg-amber-400 transition duration-300 flex items-center space-x-1 shadow-lg transform active:scale-95"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Admin</span>
+                </button>
+              </div>
+            )}
+            <button 
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)} 
+              className="lg:hidden text-white bg-blue-900 p-2 rounded-xl hover:bg-blue-950 transition"
+            >
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
+        </div>
+
+        {mobileMenuOpen && (
+          <div className="lg:hidden bg-blue-950 border-t border-blue-800 px-4 pt-3 pb-6 space-y-2 animate-fadeIn">
+            <button onClick={() => { navigateTo('home'); setMobileMenuOpen(false); }} className="block w-full text-left py-2 px-3 rounded-lg text-white font-bold hover:bg-blue-900 transition">Home</button>
+            <button onClick={() => { navigateTo('housemates'); setMobileMenuOpen(false); }} className="block w-full text-left py-2 px-3 rounded-lg text-white font-bold hover:bg-blue-900 transition">Housemates</button>
+            <button onClick={() => { navigateTo('tracker'); setMobileMenuOpen(false); }} className="block w-full text-left py-2 px-3 rounded-lg text-white font-bold hover:bg-blue-900 transition">Weekly Tracker</button>
+            <button onClick={() => { navigateTo('nominations'); setMobileMenuOpen(false); }} className="block w-full text-left py-2 px-3 rounded-lg text-white font-bold hover:bg-blue-900 transition">Nominations</button>
+            <button onClick={() => { navigateTo('voting'); setMobileMenuOpen(false); }} className="block w-full text-left py-2 px-3 rounded-lg text-[#fbbf24] font-bold hover:bg-blue-900 transition">Voting Arena</button>
+            <button onClick={() => { navigateTo('results'); setMobileMenuOpen(false); }} className="block w-full text-left py-2 px-3 rounded-lg text-white font-bold hover:bg-blue-900 transition">Results & Eviction</button>
+            <button onClick={() => { navigateTo('archives'); setMobileMenuOpen(false); }} className="block w-full text-left py-2 px-3 rounded-lg text-white font-bold hover:bg-blue-900 transition">Archives</button>
+            <div className="pt-3 border-t border-blue-900 flex space-x-2">
+              {!currentUser && (
+                <button onClick={() => { navigateTo('admin'); setMobileMenuOpen(false); }} className="w-full py-2 text-center text-xs bg-[#fbbf24] text-blue-950 rounded-xl font-black transition">Admin Login</button>
+              )}
+            </div>
+          </div>
+        )}
+      </header>
+
+      {/* Global Back Navigation Helper for Convenience */}
+      {activeTab !== 'home' && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <button 
+            onClick={goBack} 
+            className="px-4 py-2 bg-blue-900/80 hover:bg-blue-900 border border-blue-700 text-blue-200 hover:text-white rounded-xl text-xs font-bold flex items-center space-x-2 transition duration-300 shadow"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Go Back</span>
+          </button>
+        </div>
+      )}
+
+      <main className="pb-24 animate-fadeIn">
+        {activeTab === 'home' && (
+          <HomeView 
+            housemates={housemates} 
+            activeRound={activeRound} 
+            announcements={announcements} 
+            navigateTo={navigateTo} 
+            currentUser={currentUser} 
+            setCurrentUser={setCurrentUser}
+            nominations={nominations}
+            setNominations={setNominations}
+            showAlert={showAlert}
+          />
+        )}
+        {activeTab === 'housemates' && <HousematesView housemates={housemates} goBack={goBack} />}
+        {activeTab === 'tracker' && <WeeklyTrackerView housemates={housemates} rounds={rounds} weeklyStatuses={weeklyStatuses} goBack={goBack} />}
+        {activeTab === 'nominations' && <NominationsView housemates={housemates} activeRound={activeRound} goBack={goBack} />}
+        {activeTab === 'voting' && <VotingView housemates={housemates} activeRound={activeRound} currentWeekVotes={currentWeekVotes} setVotes={setVotes} resultsConfig={resultsConfig} showAlert={showAlert} goBack={goBack} />}
+        {activeTab === 'results' && <ResultsView housemates={housemates} activeRound={activeRound} currentWeekVotes={currentWeekVotes} resultsConfig={resultsConfig} goBack={goBack} />}
+        {activeTab === 'archives' && <ArchivesView archives={archives} goBack={goBack} />}
+        {activeTab === 'admin' && (
+          <AdminDashboard 
+            housemates={setHousemates} 
+            housematesList={housemates} 
+            rounds={rounds} 
+            setRounds={setRounds} 
+            announcements={announcements} 
+            setAnnouncements={setAnnouncements} 
+            resultsConfig={resultsConfig} 
+            setResultsConfig={setResultsConfig} 
+            votes={votes} 
+            setVotes={setVotes}
+            currentUser={currentUser} 
+            setCurrentUser={setCurrentUser} 
+            nominations={nominations} 
+            setNominations={setNominations}
+            activeRound={activeRound} 
+            weeklyStatuses={weeklyStatuses}
+            setWeeklyStatuses={setWeeklyStatuses}
+            archives={archives}
+            setArchives={setArchives}
+            showAlert={showAlert}
+            goBack={goBack}
+          />
+        )}
+      </main>
+
+      {modalMessage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-blue-950 border-4 border-[#fbbf24] rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl text-center space-y-4 transform animate-scaleUp">
+            <div className="mx-auto w-14 h-14 rounded-full bg-[#fbbf24] flex items-center justify-center text-blue-950 font-black shadow-lg">
+              <Star className="w-8 h-8 fill-current" />
+            </div>
+            <h3 className="text-xl font-black text-[#fbbf24]">BIG SISTER ANNOUNCEMENT</h3>
+            <p className="text-sm text-white font-medium leading-relaxed">{modalMessage}</p>
+            <button 
+              onClick={() => setModalMessage(null)} 
+              className="w-full py-3 bg-[#fbbf24] text-blue-950 font-black rounded-xl hover:bg-amber-400 transition duration-300 shadow-lg transform active:scale-95"
+            >
+              OKAY
+            </button>
+          </div>
+        </div>
+      )}
+
+      <footer className="bg-blue-950 border-t-4 border-[#fbbf24] py-10 text-center text-xs text-blue-200">
+        <div className="max-w-7xl mx-auto px-4 space-y-3">
+          <div className="flex justify-center items-center space-x-2 text-[#fbbf24] font-black text-lg">
+            <div className="w-6 h-6 rounded-full border border-[#fbbf24] flex items-center justify-center">
+              <div className="w-2 h-2 rounded-full bg-[#fbbf24]"></div>
+            </div>
+            <span>PINOY BIG SISTER: PLATO EDITION</span>
+          </div>
+          <p className="text-blue-300">Official PBB Broadcast Reality Management & Voting Platform.</p>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+function HomeView({ housemates, activeRound, announcements, navigateTo, currentUser, setCurrentUser, nominations, setNominations, showAlert }) {
+  const nomineeDetails = housemates.filter(h => activeRound?.nominees?.includes(h.id));
+
+  return (
+    <div className="space-y-16 animate-fadeIn">
+      <div className="relative overflow-hidden bg-gradient-to-b from-[#0284c7] via-[#06244f] to-[#061e38] border-b-4 border-[#fbbf24] py-20 px-4 text-center">
+        <div className="relative max-w-4xl mx-auto space-y-6">
+          <div className="w-24 h-24 mx-auto bg-blue-950 rounded-full border-4 border-[#fbbf24] flex items-center justify-center shadow-2xl animate-pulse">
+            <div className="w-12 h-8 rounded-full border-2 border-[#fbbf24] bg-[#0284c7] flex items-center justify-center">
+              <div className="w-4 h-4 rounded-full bg-[#fbbf24] animate-ping"></div>
+            </div>
+          </div>
+          <h1 className="text-4xl sm:text-7xl font-black tracking-tight text-white drop-shadow-2xl">
+            PINOY BIG SISTER <span className="text-[#fbbf24]">PLATO EDITION</span>
+          </h1>
+          <p className="text-base sm:text-xl text-blue-100 max-w-2xl mx-auto font-medium">
+            Step inside the ultimate reality TV estate of intellect, drama, and strategy.
+          </p>
+          <div className="flex flex-wrap justify-center gap-4 pt-4">
+            <button 
+              onClick={() => navigateTo('voting')}
+              className="px-8 py-4 bg-[#fbbf24] text-blue-950 font-black rounded-2xl shadow-2xl hover:bg-amber-400 transition duration-300 transform hover:-translate-y-1 active:scale-95 flex items-center space-x-2 text-base"
+            >
+              <Vote className="w-5 h-5" />
+              <span>ENTER VOTING ARENA</span>
+            </button>
+            <button 
+              onClick={() => navigateTo('housemates')}
+              className="px-8 py-4 bg-blue-900 border-2 border-[#fbbf24] text-white font-black rounded-2xl shadow-xl hover:bg-blue-800 transition duration-300 transform hover:-translate-y-1 active:scale-95 flex items-center space-x-2 text-base"
+            >
+              <Users className="w-5 h-5 text-[#fbbf24]" />
+              <span>MEET HOUSEMATES</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
+        {/* HOMEPAGE HOUSEMATE LOGIN PORTAL */}
+        {!currentUser && (
+          <div className="max-w-md mx-auto bg-blue-950 border-4 border-[#fbbf24] rounded-3xl p-8 shadow-2xl space-y-6 animate-fadeIn">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 rounded-full bg-[#fbbf24] flex items-center justify-center text-blue-950 mx-auto shadow">
+                <Users className="w-6 h-6" />
+              </div>
+              <h2 className="text-xl font-black text-white">HOUSEMATE PORTAL LOGIN</h2>
+              <p className="text-xs text-blue-200">Enter your name and access code to submit weekly nominations.</p>
+            </div>
+            <HousemateLoginForm housemates={housemates} setCurrentUser={setCurrentUser} nominations={nominations} setNominations={setNominations} activeRound={activeRound} showAlert={showAlert} />
+          </div>
+        )}
+
+        {currentUser && currentUser.role === 'housemate' && (
+          <div className="max-w-3xl mx-auto bg-blue-950 border-4 border-[#fbbf24] rounded-3xl p-8 shadow-2xl space-y-6 animate-fadeIn">
+            <div className="flex flex-col sm:flex-row items-center justify-between border-b border-blue-900 pb-4 gap-4">
+              <div className="flex items-center space-x-4">
+                <img src={currentUser.housemate.photo} alt={currentUser.housemate.name} className="w-16 h-16 rounded-full object-cover border-2 border-[#fbbf24]" />
+                <div>
+                  <span className="text-xs font-black text-[#fbbf24]">{currentUser.housemate.id}</span>
+                  <h3 className="text-2xl font-black text-white">{currentUser.housemate.name}</h3>
+                </div>
+              </div>
+              <button 
+                onClick={() => setCurrentUser(null)} 
+                className="px-4 py-2 bg-red-500/20 text-red-300 border border-red-500/40 rounded-xl text-xs font-bold hover:bg-red-500 hover:text-white transition"
+              >
+                Logout
+              </button>
+            </div>
+            <HousematePortalContent housemates={housemates} currentUser={currentUser} nominations={nominations} setNominations={setNominations} activeRound={activeRound} showAlert={showAlert} />
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-gradient-to-br from-blue-900 to-blue-950 border-2 border-[#fbbf24]/50 rounded-3xl p-6 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 text-[#fbbf24]/20"><Radio className="w-16 h-16" /></div>
+            <h3 className="text-xs font-black text-[#fbbf24] tracking-widest uppercase">Current Status</h3>
+            <p className="text-3xl font-black mt-2 text-white">Week {activeRound.week} Active</p>
+            <p className="text-xs text-blue-200 mt-1">Nomination Method: {activeRound.method}</p>
+            <div className="mt-4 inline-flex items-center space-x-2 bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full text-xs font-bold border border-emerald-500/40">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+              <span>VOTING OPEN</span>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-blue-900 to-blue-950 border-2 border-[#fbbf24]/50 rounded-3xl p-6 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 text-[#fbbf24]/20"><Clock className="w-16 h-16" /></div>
+            <h3 className="text-xs font-black text-[#fbbf24] tracking-widest uppercase">Voting Deadline</h3>
+            <p className="text-2xl font-black mt-2 text-white">Every Monday @ 12:30 PM</p>
+            <p className="text-xs text-blue-200 mt-1">Philippine Standard Time (Asia/Manila)</p>
+            <div className="mt-4 text-xs text-[#fbbf24] font-bold">Manual & Automatic Server Closure</div>
+          </div>
+
+          <div className="bg-gradient-to-br from-blue-900 to-blue-950 border-2 border-[#fbbf24]/50 rounded-3xl p-6 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 text-[#fbbf24]/20"><Trophy className="w-16 h-16" /></div>
+            <h3 className="text-xs font-black text-[#fbbf24] tracking-widest uppercase">Scoring Formula</h3>
+            <p className="text-sm font-black mt-3 text-white">Final Score = Save % − Evict %</p>
+            <p className="text-xs text-blue-200 mt-1">Lowest final score faces eviction.</p>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="flex items-center justify-between border-b-2 border-blue-900 pb-4">
+            <div>
+              <h2 className="text-3xl font-black text-white tracking-wide flex items-center space-x-2">
+                <Flame className="w-7 h-7 text-[#fbbf24]" />
+                <span>OFFICIAL NOMINEES</span>
+              </h2>
+              <p className="text-xs text-blue-300 font-medium">Week {activeRound.week} Official Nominated Housemates</p>
+            </div>
+            <button onClick={() => navigateTo('voting')} className="text-xs font-black text-[#fbbf24] hover:underline flex items-center space-x-1 bg-blue-900 px-4 py-2 rounded-xl transition duration-300">
+              <span>VOTE NOW</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {nomineeDetails.length === 0 ? (
+            <div className="bg-blue-950 border-2 border-blue-900 rounded-3xl p-12 text-center text-blue-300 font-bold">
+              No official nominees published for this week yet. Check back soon.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {nomineeDetails.map(hm => (
+                <div key={hm.id} className="bg-blue-950 border-3 border-[#fbbf24] rounded-3xl overflow-hidden group hover:scale-[1.02] transition duration-300 shadow-2xl">
+                  <div className="h-72 overflow-hidden relative">
+                    <img src={hm.photo} alt={hm.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" onError={(e)=>{e.target.src='https://placehold.co/400x500/0284c7/ffffff?text=Housemate'}} />
+                    <div className="absolute inset-0 bg-gradient-to-t from-blue-950 via-transparent to-transparent"></div>
+                    <span className="absolute top-3 left-3 bg-blue-900 text-[#fbbf24] font-black px-3 py-1 rounded-full text-xs border border-[#fbbf24] shadow">{hm.id}</span>
+                  </div>
+                  <div className="p-6 space-y-3">
+                    <h3 className="text-xl font-black text-white">{hm.name}</h3>
+                    <p className="text-xs text-blue-200 line-clamp-2">{hm.bio}</p>
+                    <button 
+                      onClick={() => navigateTo('voting')}
+                      className="w-full py-3 bg-[#fbbf24] text-blue-950 font-black text-xs rounded-xl hover:bg-amber-400 transition duration-300 shadow-lg transform active:scale-95"
+                    >
+                      CAST VOTE
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-6">
+          <div className="border-b-2 border-blue-900 pb-4">
+            <h2 className="text-3xl font-black text-white tracking-wide">BIG SISTER ANNOUNCEMENTS</h2>
+            <p className="text-xs text-blue-300 font-medium">Official updates from inside the house</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {announcements.map(ann => (
+              <div key={ann.id} className="bg-blue-950 border-2 border-blue-900 rounded-3xl p-6 space-y-3 shadow-xl">
+                <div className="flex items-center justify-between text-xs text-[#fbbf24] font-bold">
+                  <span>{ann.date}</span>
+                  <span className="bg-blue-900 px-3 py-1 rounded-full border border-[#fbbf24]/40">OFFICIAL</span>
+                </div>
+                <h3 className="text-lg font-black text-white">{ann.title}</h3>
+                <p className="text-sm text-blue-100 leading-relaxed font-medium">{ann.content}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HousemateLoginForm({ housemates, setCurrentUser, showAlert }) {
+  const [nameInput, setNameInput] = useState('');
+  const [codeInput, setCodeInput] = useState('');
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    const hm = housemates.find(h => h.name.toLowerCase().trim() === nameInput.toLowerCase().trim() && h.code === codeInput.trim());
+    if (!hm) {
+      showAlert('Invalid Housemate Name or Unique Access Code.');
+      return;
+    }
+    if (hm.status === 'Evicted' || hm.status === 'Suspended') {
+      showAlert('Your account has been evicted or suspended by Big Sister. Nomination and voting privileges are revoked.');
+      return;
+    }
+    setCurrentUser({ role: 'housemate', housemate: hm });
+    setNameInput('');
+    setCodeInput('');
+  };
+
+  return (
+    <form onSubmit={handleLogin} className="space-y-4">
+      <div className="space-y-1">
+        <label className="text-xs font-black uppercase text-[#fbbf24]">Housemate Name</label>
+        <input 
+          type="text" 
+          value={nameInput} 
+          onChange={e => setNameInput(e.target.value)} 
+          placeholder="e.g. Aurelius Vance" 
+          className="w-full bg-blue-900 border-2 border-blue-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#fbbf24] transition"
+          required
+        />
+      </div>
+      <div className="space-y-1">
+        <label className="text-xs font-black uppercase text-[#fbbf24]">Unique Access Code</label>
+        <input 
+          type="password" 
+          value={codeInput} 
+          onChange={e => setCodeInput(e.target.value)} 
+          placeholder="••••••" 
+          className="w-full bg-blue-900 border-2 border-blue-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#fbbf24] transition"
+          required
+        />
+      </div>
+      <button type="submit" className="w-full py-4 bg-[#fbbf24] text-blue-950 font-black rounded-xl hover:bg-amber-400 transition duration-300 shadow-lg transform active:scale-95">
+        ACCESS DASHBOARD
+      </button>
+    </form>
+  );
+}
+
+function HousematePortalContent({ housemates, currentUser, nominations, setNominations, activeRound, showAlert }) {
+  const hm = currentUser.housemate;
+  const weekKey = `week_${activeRound.week}`;
+  const myNomination = nominations[weekKey]?.[hm.id];
+
+  const [firstNominee, setFirstNominee] = useState('');
+  const [firstReason, setFirstReason] = useState('');
+  const [secondNominee, setSecondNominee] = useState('');
+  const [secondReason, setSecondReason] = useState('');
+
+  const handleNominationSubmit = (e) => {
+    e.preventDefault();
+    if (firstNominee === secondNominee) {
+      showAlert('You cannot nominate the same housemate twice.');
+      return;
+    }
+    if (firstNominee === hm.id || secondNominee === hm.id) {
+      showAlert('You cannot nominate yourself.');
+      return;
+    }
+    if (!firstReason.trim() || !secondReason.trim()) {
+      showAlert('Both nomination reasons are required.');
+      return;
+    }
+
+    const currentSubmissions = nominations[weekKey] || {};
+    if (currentSubmissions[hm.id]) {
+      showAlert('You have already submitted your nominations for this weekly round.');
+      return;
+    }
+
+    setNominations(prev => ({
+      ...prev,
+      [weekKey]: {
+        ...currentSubmissions,
+        [hm.id]: {
+          first: { to: firstNominee, reason: firstReason, points: 3 },
+          second: { to: secondNominee, reason: secondReason, points: 1 }
+        }
+      }
+    }));
+
+    showAlert('Nominations successfully submitted and locked in the administrator vault.');
+    setFirstNominee('');
+    setFirstReason('');
+    setSecondNominee('');
+    setSecondReason('');
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="border-b border-blue-900 pb-4">
+        <h3 className="text-lg font-black text-[#fbbf24]">Weekly Online Nominations (Week {activeRound.week})</h3>
+        <p className="text-xs text-blue-200">Nominate 2 different housemates (3 points for 1st, 1 point for 2nd with required reasons).</p>
+      </div>
+
+      {myNomination ? (
+        <div className="bg-blue-900 p-6 rounded-2xl border-2 border-blue-800 space-y-4">
+          <div className="text-xs font-black text-emerald-400 flex items-center space-x-2">
+            <CheckCircle className="w-5 h-5" />
+            <span>Nominations Successfully Submitted & Locked</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm font-medium">
+            <div className="bg-blue-950 p-4 rounded-xl border border-blue-800 space-y-1">
+              <span className="text-xs text-[#fbbf24] font-black">1st Nominee (3 pts): {myNomination.first.to}</span>
+              <p className="text-xs text-blue-100">Reason: {myNomination.first.reason}</p>
+            </div>
+            <div className="bg-blue-950 p-4 rounded-xl border border-blue-800 space-y-1">
+              <span className="text-xs text-[#fbbf24] font-black">2nd Nominee (1 pt): {myNomination.second.to}</span>
+              <p className="text-xs text-blue-100">Reason: {myNomination.second.reason}</p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={handleNominationSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-3 bg-blue-900 p-5 rounded-2xl border-2 border-blue-800">
+              <label className="text-xs font-black uppercase text-[#fbbf24]">First Nominee (3 Points)</label>
+              <select 
+                value={firstNominee} 
+                onChange={e => setFirstNominee(e.target.value)} 
+                className="w-full bg-blue-950 border-2 border-blue-800 rounded-xl px-4 py-3 text-sm text-white font-bold"
+                required
+              >
+                <option value="">Select Housemate</option>
+                {housemates.filter(h => h.id !== hm.id && h.status === 'Active').map(h => (
+                  <option key={h.id} value={h.id}>{h.name} ({h.id})</option>
+                ))}
+              </select>
+              <textarea 
+                value={firstReason} 
+                onChange={e => setFirstReason(e.target.value)} 
+                placeholder="Enter mandatory nomination reason..." 
+                className="w-full bg-blue-950 border-2 border-blue-800 rounded-xl p-4 text-sm text-white h-24 focus:outline-none focus:border-[#fbbf24]"
+                required
+              />
+            </div>
+
+            <div className="space-y-3 bg-blue-900 p-5 rounded-2xl border-2 border-blue-800">
+              <label className="text-xs font-black uppercase text-[#fbbf24]">Second Nominee (1 Point)</label>
+              <select 
+                value={secondNominee} 
+                onChange={e => setSecondNominee(e.target.value)} 
+                className="w-full bg-blue-950 border-2 border-blue-800 rounded-xl px-4 py-3 text-sm text-white font-bold"
+                required
+              >
+                <option value="">Select Housemate</option>
+                {housemates.filter(h => h.id !== hm.id && h.status === 'Active').map(h => (
+                  <option key={h.id} value={h.id}>{h.name} ({h.id})</option>
+                ))}
+              </select>
+              <textarea 
+                value={secondReason} 
+                onChange={e => setSecondReason(e.target.value)} 
+                placeholder="Enter mandatory nomination reason..." 
+                className="w-full bg-blue-950 border-2 border-blue-800 rounded-xl p-4 text-sm text-white h-24 focus:outline-none focus:border-[#fbbf24]"
+                required
+              />
+            </div>
+          </div>
+
+          <button type="submit" className="w-full py-4 bg-[#fbbf24] text-blue-950 font-black rounded-xl hover:bg-amber-400 transition duration-300 uppercase tracking-wider text-base shadow-2xl transform active:scale-95">
+            LOCK AND SUBMIT NOMINATIONS
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function HousematesView({ housemates, goBack }) {
+  const [filter, setFilter] = useState('All');
+
+  const filtered = housemates.filter(h => {
+    if (filter === 'All') return true;
+    return h.status === filter;
+  });
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8 animate-fadeIn">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b-2 border-blue-900 pb-6">
+        <div>
+          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-wide">OFFICIAL ROSTER</h1>
+          <p className="text-sm text-blue-200 font-medium">The housemates currently living inside the Plato Edition estate.</p>
+        </div>
+        <div className="flex items-center space-x-2">
+          {['All', 'Active', 'Suspended', 'Evicted'].map(st => (
+            <button 
+              key={st}
+              onClick={() => setFilter(st)}
+              className={`px-4 py-2 text-xs font-black rounded-xl transition duration-300 transform active:scale-95 ${filter === st ? 'bg-[#fbbf24] text-blue-950 shadow-lg' : 'bg-blue-900 text-white hover:bg-blue-800'}`}
+            >
+              {st}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {filtered.map(hm => (
+          <div key={hm.id} className="bg-blue-950 border-3 border-blue-900 rounded-3xl overflow-hidden group hover:border-[#fbbf24] transition duration-300 shadow-2xl flex flex-col justify-between">
+            <div>
+              <div className="h-72 overflow-hidden relative">
+                <img src={hm.photo} alt={hm.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" onError={(e)=>{e.target.src='https://placehold.co/400x500/0284c7/ffffff?text=Housemate'}} />
+                <div className="absolute inset-0 bg-gradient-to-t from-blue-950 via-transparent to-transparent"></div>
+                <span className="absolute top-3 left-3 bg-blue-900 text-[#fbbf24] font-black px-3 py-1 rounded-full text-xs border border-[#fbbf24] shadow">{hm.id}</span>
+                <span className={`absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
+                  hm.status === 'Active' ? 'bg-emerald-500 text-blue-950' :
+                  hm.status === 'Suspended' ? 'bg-amber-500 text-blue-950' :
+                  'bg-red-500 text-white'
+                }`}>
+                  {hm.status}
+                </span>
+              </div>
+              <div className="p-6 space-y-3">
+                <h3 className="text-xl font-black text-white">{hm.name}</h3>
+                <p className="text-xs text-blue-200 leading-relaxed font-medium">{hm.bio}</p>
+              </div>
+            </div>
+            <div className="px-6 pb-6 pt-0">
+              <div className="text-xs font-black uppercase text-blue-300 border-t border-blue-900 pt-4 flex justify-between">
+                <span>Account Status</span>
+                <span className="text-[#fbbf24]">{hm.status}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function WeeklyTrackerView({ housemates, rounds, weeklyStatuses, goBack }) {
+  const allWeeks = rounds.map(r => r.week);
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8 animate-fadeIn">
+      <div className="border-b-2 border-blue-900 pb-6 text-center space-y-3">
+        <div className="inline-flex items-center space-x-2 text-blue-950 bg-[#fbbf24] px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest shadow-lg">
+          <Award className="w-4 h-4" />
+          <span>Competition Journey</span>
+        </div>
+        <h1 className="text-3xl sm:text-5xl font-black text-white">WEEKLY STATUS TRACKER</h1>
+        <p className="text-sm text-blue-200 max-w-xl mx-auto font-medium">
+          Track the status of each housemate (Nominated, Safe, or Evicted) across every weekly round.
+        </p>
+      </div>
+
+      <div className="bg-blue-950 border-4 border-[#fbbf24] rounded-3xl p-6 sm:p-8 shadow-2xl overflow-x-auto">
+        <table className="w-full text-left border-collapse min-w-[600px]">
+          <thead>
+            <tr className="border-b-2 border-blue-900 text-xs font-black uppercase text-[#fbbf24]">
+              <th className="py-4 px-4">Housemate</th>
+              {allWeeks.map(w => (
+                <th key={w} className="py-4 px-4 text-center">Week {w}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-blue-900 text-sm font-bold">
+            {housemates.map(hm => (
+              <tr key={hm.id} className="hover:bg-blue-900/40 transition duration-300">
+                <td className="py-4 px-4 flex items-center space-x-3">
+                  <img src={hm.photo} alt={hm.name} className="w-10 h-10 rounded-full object-cover border-2 border-[#fbbf24]" />
+                  <div>
+                    <div className="text-white">{hm.name}</div>
+                    <div className="text-[10px] text-blue-300 font-mono">{hm.id}</div>
+                  </div>
+                </td>
+                {allWeeks.map(w => {
+                  const status = weeklyStatuses[hm.id]?.[w] || 'Safe';
+                  return (
+                    <td key={w} className="py-4 px-4 text-center">
+                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-black uppercase tracking-wide ${
+                        status === 'Nominated' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' :
+                        status === 'Evicted' ? 'bg-red-500/20 text-red-300 border border-red-500/40' :
+                        'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      }`}>
+                        {status}
+                      </span>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function NominationsView({ housemates, activeRound, goBack }) {
+  const nomineeList = housemates.filter(h => activeRound?.nominees?.includes(h.id));
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8 animate-fadeIn">
+      <div className="border-b-2 border-blue-900 pb-6 text-center space-y-3">
+        <div className="inline-flex items-center space-x-2 text-blue-950 bg-[#fbbf24] px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest shadow-lg">
+          <ShieldAlert className="w-4 h-4" />
+          <span>Week {activeRound.week} Official Nominees</span>
+        </div>
+        <h1 className="text-3xl sm:text-4xl font-black text-white">CONFIRMED NOMINATION BOARD</h1>
+        <p className="text-sm text-blue-200 max-w-xl mx-auto font-medium">
+          Following strict Big Sister broadcast rules, individual nomination points, reasons, and raw ballots remain locked inside the administrator vault. Only the confirmed official nominees appear below.
+        </p>
+      </div>
+
+      {nomineeList.length === 0 ? (
+        <div className="bg-blue-950 border-3 border-blue-900 rounded-3xl p-12 text-center text-blue-300 font-bold space-y-3">
+          <Lock className="w-12 h-12 text-[#fbbf24] mx-auto" />
+          <h3 className="text-xl font-black text-white">Nominees Not Yet Published</h3>
+          <p className="text-xs">The administrator is currently reviewing this week's nomination results.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          {nomineeList.map((hm, idx) => (
+            <div key={hm.id} className="bg-blue-950 border-3 border-[#fbbf24] rounded-3xl p-6 text-center space-y-4 shadow-2xl relative overflow-hidden">
+              <span className="absolute top-3 left-3 bg-[#fbbf24] text-blue-950 font-black text-sm w-8 h-8 rounded-full flex items-center justify-center shadow">
+                {String.fromCharCode(65 + idx)}
+              </span>
+              <img src={hm.photo} alt={hm.name} className="w-32 h-32 mx-auto rounded-full object-cover border-4 border-[#fbbf24] shadow-lg" onError={(e)=>{e.target.src='https://placehold.co/200x200/0284c7/ffffff?text=Nominee'}} />
+              <div>
+                <h3 className="text-xl font-black text-white">{hm.name}</h3>
+                <p className="text-xs font-bold text-[#fbbf24]">{hm.id}</p>
+              </div>
+              <div className="text-xs text-blue-200 bg-blue-900 p-3 rounded-2xl border border-blue-800 font-medium">
+                Facing public scrutiny in both Save & Evict categories this week.
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VotingView({ housemates, activeRound, currentWeekVotes, setVotes, resultsConfig, showAlert, goBack }) {
+  const [selectedNominee, setSelectedNominee] = useState('');
+  const [voteType, setVoteType] = useState('save'); 
+
+  const nomineeList = housemates.filter(h => activeRound?.nominees?.includes(h.id));
+
+  const handleVoteSubmission = (e) => {
+    e.preventDefault();
+    if (resultsConfig.votingManuallyClosed) {
+      showAlert('Voting has been manually closed by the administrator.');
+      return;
+    }
+    if (!selectedNominee) {
+      showAlert('Please select a nominee.');
+      return;
+    }
+
+    setVotes(prev => {
+      const weekNum = activeRound.week;
+      const weekVotes = prev[weekNum] || { save: {}, evict: {} };
+      const category = voteType === 'save' ? 'save' : 'evict';
+      const currentCount = weekVotes[category][selectedNominee] || 0;
+
+      return {
+        ...prev,
+        [weekNum]: {
+          ...weekVotes,
+          [category]: {
+            ...weekVotes[category],
+            [selectedNominee]: currentCount + 1
+          }
+        }
+      };
+    });
+
+    showAlert(`Successfully cast your Vote to ${voteType === 'save' ? 'SAVE' : 'EVICT'} for nominee ${selectedNominee}! Thank you.`);
+    setSelectedNominee('');
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10 animate-fadeIn">
+      <div className="text-center space-y-3 border-b-2 border-blue-900 pb-6">
+        <div className="inline-flex items-center space-x-2 text-blue-950 bg-[#fbbf24] px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest shadow-lg">
+          <Vote className="w-4 h-4" />
+          <span>Official PBB Voting Arena • Week {activeRound.week}</span>
+        </div>
+        <h1 className="text-3xl sm:text-5xl font-black text-white">SAVE OR EVICT</h1>
+        <p className="text-sm text-blue-200 max-w-xl mx-auto font-medium">
+          Simultaneous voting is active for Week {activeRound.week}. You may vote repeatedly while voting is open.
+        </p>
+      </div>
+
+      {resultsConfig.votingManuallyClosed ? (
+        <div className="bg-red-500/20 border-3 border-red-500 rounded-3xl p-12 text-center text-red-200 font-bold space-y-2">
+          <Lock className="w-12 h-12 text-red-400 mx-auto" />
+          <h3 className="text-xl font-black text-white">VOTING IS CURRENTLY CLOSED</h3>
+          <p className="text-xs">The administrator has closed voting for this round.</p>
+        </div>
+      ) : nomineeList.length === 0 ? (
+        <div className="bg-blue-950 border-3 border-blue-900 rounded-3xl p-12 text-center text-blue-300 font-bold">
+          Voting is currently closed or no nominees have been confirmed for this round.
+        </div>
+      ) : (
+        <form onSubmit={handleVoteSubmission} className="bg-blue-950 border-4 border-[#fbbf24] rounded-3xl p-6 sm:p-10 space-y-8 shadow-2xl">
+          <div className="space-y-3">
+            <label className="text-xs font-black uppercase text-[#fbbf24] tracking-wider">1. Select Voting Category</label>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                type="button"
+                onClick={() => setVoteType('save')}
+                className={`py-4 px-4 rounded-2xl font-black text-sm uppercase transition duration-300 shadow-lg transform active:scale-95 ${
+                  voteType === 'save' 
+                    ? 'bg-emerald-500 text-blue-950 border-4 border-white scale-[1.02]' 
+                    : 'bg-blue-900 text-white hover:bg-blue-800'
+                }`}
+              >
+                💚 VOTE TO SAVE
+              </button>
+              <button
+                type="button"
+                onClick={() => setVoteType('evict')}
+                className={`py-4 px-4 rounded-2xl font-black text-sm uppercase transition duration-300 shadow-lg transform active:scale-95 ${
+                  voteType === 'evict' 
+                    ? 'bg-red-500 text-white border-4 border-white scale-[1.02]' 
+                    : 'bg-blue-900 text-white hover:bg-blue-800'
+                }`}
+              >
+                ❤️ VOTE TO EVICT
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-xs font-black uppercase text-[#fbbf24] tracking-wider">2. Choose Nominee</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {nomineeList.map((hm, idx) => (
+                <div 
+                  key={hm.id}
+                  onClick={() => setSelectedNominee(hm.id)}
+                  className={`cursor-pointer border-3 rounded-2xl p-4 text-center transition duration-300 space-y-2 shadow-lg transform active:scale-95 ${
+                    selectedNominee === hm.id 
+                      ? 'border-[#fbbf24] bg-blue-900 shadow-2xl scale-105' 
+                      : 'border-blue-900 bg-blue-950/80 hover:border-blue-700'
+                  }`}
+                >
+                  <div className="w-16 h-16 mx-auto rounded-full overflow-hidden border-2 border-[#fbbf24]">
+                    <img src={hm.photo} alt={hm.name} className="w-full h-full object-cover" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-black text-[#fbbf24]">({String.fromCharCode(65 + idx)})</span>
+                    <h4 className="text-base font-black text-white">{hm.name}</h4>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <button 
+            type="submit"
+            className={`w-full py-5 rounded-2xl font-black uppercase tracking-wider text-base transition duration-300 shadow-2xl transform active:scale-95 ${
+              voteType === 'save' 
+                ? 'bg-emerald-500 hover:bg-emerald-400 text-blue-950' 
+                : 'bg-red-600 hover:bg-red-500 text-white'
+            }`}
+          >
+            SUBMIT VOTE TO {voteType.toUpperCase()}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function ResultsView({ housemates, activeRound, currentWeekVotes, resultsConfig, goBack }) {
+  const nomineeIds = activeRound.nominees || [];
+  
+  const saveVotesMap = currentWeekVotes.save || {};
+  const evictVotesMap = currentWeekVotes.evict || {};
+
+  const totalSaveVotes = Object.values(saveVotesMap).reduce((a, b) => a + b, 0) || 1;
+  const totalEvictVotes = Object.values(evictVotesMap).reduce((a, b) => a + b, 0) || 1;
+
+  const calculatedResults = nomineeIds.map((id, idx) => {
+    const hm = housemates.find(h => h.id === id);
+    const saveCount = saveVotesMap[id] || 0;
+    const evictCount = evictVotesMap[id] || 0;
+
+    const savePct = (saveCount / totalSaveVotes) * 100;
+    const evictPct = (evictCount / totalEvictVotes) * 100;
+    const finalScore = savePct - evictPct;
+
+    return {
+      id,
+      name: hm ? hm.name : 'Unknown',
+      photo: hm ? hm.photo : '',
+      letter: String.fromCharCode(65 + idx),
+      savePct,
+      evictPct,
+      finalScore
+    };
+  }).sort((a, b) => b.savePct - a.savePct); // PBB Gen 11 Tally format typically sorted or ordered by Nominee A, B, C...
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12 animate-fadeIn">
+      <div className="text-center space-y-2 border-b-2 border-blue-900 pb-6">
+        <div className="inline-flex items-center space-x-2 text-blue-950 bg-[#fbbf24] px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest shadow-lg">
+          <Trophy className="w-4 h-4" />
+          <span>Official Tally & Eviction Hall • Week {activeRound.week}</span>
+        </div>
+        <h1 className="text-3xl sm:text-5xl font-black text-white">RESULTS & EVICTION</h1>
+        <p className="text-sm text-blue-200 font-medium">
+          Official scores calculated via formula: Final Score = Save % − Evict %
+        </p>
+      </div>
+
+      {/* PBB GEN 11 EXACT TALLY GRAPHIC LAYOUT */}
+      <div className="bg-blue-950 border-4 border-[#fbbf24] rounded-3xl p-6 sm:p-10 space-y-8 shadow-2xl relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row items-center justify-between border-b-2 border-blue-900 pb-6 gap-4">
+          <div>
+            <div className="text-xs tracking-widest text-[#fbbf24] font-black uppercase">Official Broadcast Graphic</div>
+            <h3 className="text-2xl sm:text-3xl font-black text-white flex items-center space-x-3">
+              <Radio className="w-7 h-7 text-[#fbbf24] animate-pulse" />
+              <span>TALLY OF VOTES (WEEK {activeRound.week})</span>
+            </h3>
+          </div>
+          <span className="text-xs font-mono font-bold bg-blue-900 text-emerald-400 px-4 py-1.5 rounded-full border border-emerald-500/40">
+            {resultsConfig.showPartial ? '🟢 Publicly Visible' : '🔒 Hidden by Admin'}
+          </span>
+        </div>
+
+        {!resultsConfig.showPartial ? (
+          <div className="text-center py-16 text-blue-300 font-bold text-sm">
+            The partial tally board is currently hidden by administrator controls.
+          </div>
+        ) : (
+          <div className="space-y-6 max-w-3xl mx-auto">
+            <div className="flex justify-between items-center text-xs font-black uppercase text-blue-300 px-4">
+              <span className="text-emerald-400">Vote to Save</span>
+              <span className="text-[#fbbf24]">Nominee</span>
+              <span className="text-red-400">Vote to Evict</span>
+            </div>
+
+            {calculatedResults.map((res) => {
+              // Color mapping for nominee pill based on index or letter
+              const badgeColors = { 'A': 'bg-blue-600', 'B': 'bg-amber-600', 'C': 'bg-red-600', 'D': 'bg-emerald-600' };
+              const colorClass = badgeColors[res.letter] || 'bg-blue-600';
+
+              return (
+                <div key={res.id} className="bg-blue-900/90 border-2 border-blue-800 rounded-2xl p-4 sm:p-5 flex items-center justify-between shadow-xl gap-2 sm:gap-4 relative overflow-hidden">
+                  {/* Left: Save Percentage Bar & Value */}
+                  <div className="flex-1 flex items-center justify-end space-x-3">
+                    <span className="text-base sm:text-xl font-black text-emerald-400 font-mono">{res.savePct.toFixed(2)}%</span>
+                    <div className="hidden sm:block w-32 bg-blue-950 h-3 rounded-full overflow-hidden border border-emerald-500/40">
+                      <div className="bg-emerald-400 h-full rounded-full transition-all duration-1000" style={{ width: `${Math.min(res.savePct, 100)}%` }}></div>
+                    </div>
+                  </div>
+
+                  {/* Center: Nominee Badge with Avatar */}
+                  <div className={`px-4 sm:px-6 py-2.5 rounded-2xl ${colorClass} border-2 border-[#fbbf24] flex items-center space-x-3 shadow-lg transform hover:scale-105 transition`}>
+                    <span className="text-xl sm:text-2xl font-black text-white">{res.letter}</span>
+                    <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/80 shadow">
+                      <img src={res.photo} alt={res.name} className="w-full h-full object-cover" />
+                    </div>
+                  </div>
+
+                  {/* Right: Evict Percentage Bar & Value */}
+                  <div className="flex-1 flex items-center justify-start space-x-3">
+                    <div className="hidden sm:block w-32 bg-blue-950 h-3 rounded-full overflow-hidden border border-red-500/40">
+                      <div className="bg-red-500 h-full rounded-full transition-all duration-1000" style={{ width: `${Math.min(res.evictPct, 100)}%` }}></div>
+                    </div>
+                    <span className="text-base sm:text-xl font-black text-red-400 font-mono">{res.evictPct.toFixed(2)}%</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-blue-950 border-4 border-[#fbbf24] rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
+        <div className="flex items-center justify-between border-b-2 border-blue-900 pb-4">
+          <h3 className="text-xl font-black text-[#fbbf24] flex items-center space-x-2">
+            <Award className="w-6 h-6" />
+            <span>FINAL RESULTS & RANKINGS</span>
+          </h3>
+          <span className="text-xs text-blue-300 font-mono font-bold bg-blue-900 px-3 py-1 rounded-full">
+            {resultsConfig.showFinal ? '🟢 Published' : '🔒 Awaiting Admin Publication'}
+          </span>
+        </div>
+
+        {!resultsConfig.showFinal ? (
+          <div className="text-center py-12 text-blue-300 space-y-3 font-bold">
+            <Lock className="w-10 h-10 text-[#fbbf24] mx-auto animate-bounce" />
+            <p className="text-sm">Final results have not yet been published by the administrator.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {calculatedResults.map((res, index) => {
+              const isEvicted = index === calculatedResults.length - 1 && resultsConfig.evictionPublished;
+              return (
+                <div key={res.id} className={`flex flex-col sm:flex-row items-center justify-between p-5 rounded-2xl border-3 transition duration-300 ${isEvicted ? 'bg-red-500/20 border-red-500' : 'bg-blue-900 border-blue-800'} gap-4 shadow-xl`}>
+                  <div className="flex items-center space-x-4">
+                    <span className="w-10 h-10 rounded-full bg-[#fbbf24] text-blue-950 font-black text-base flex items-center justify-center shadow">
+                      #{index + 1}
+                    </span>
+                    <img src={res.photo} alt={res.name} className="w-14 h-14 rounded-full object-cover border-2 border-[#fbbf24]" />
+                    <div>
+                      <h4 className="font-black text-white text-lg">{res.name}</h4>
+                      <p className="text-xs font-mono text-blue-200">Save: {res.savePct.toFixed(2)}% | Evict: {res.evictPct.toFixed(2)}%</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-6">
+                    <div className="text-right">
+                      <div className="text-xs text-blue-300 font-black uppercase">Final Score</div>
+                      <div className="text-xl font-black text-[#fbbf24] font-mono">{res.finalScore.toFixed(2)}</div>
+                    </div>
+                    {isEvicted && (
+                      <span className="bg-red-600 text-white text-xs font-black px-4 py-2 rounded-xl uppercase tracking-wider animate-pulse shadow-lg">
+                        EVICTED
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ArchivesView({ archives, goBack }) {
+  return (
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8 animate-fadeIn">
+      <div className="border-b-2 border-blue-900 pb-6 text-center space-y-3">
+        <div className="inline-flex items-center space-x-2 text-blue-950 bg-[#fbbf24] px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest shadow-lg">
+          <Archive className="w-4 h-4" />
+          <span>Historical Records</span>
+        </div>
+        <h1 className="text-3xl sm:text-5xl font-black text-white">COMPETITION ARCHIVES</h1>
+        <p className="text-sm text-blue-200 font-medium">Preserving past weeks, historical nominees, and evicted housemates.</p>
+      </div>
+
+      <div className="space-y-6">
+        {archives.map((arc, idx) => (
+          <div key={idx} className="bg-blue-950 border-3 border-blue-900 rounded-3xl p-6 sm:p-8 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between border-b border-blue-900 pb-4">
+              <span className="text-xs font-black text-blue-950 bg-[#fbbf24] px-3 py-1 rounded-full">Week {arc.week} Record</span>
+              <span className="text-xs text-blue-300 font-bold">Archived by Big Sister System</span>
+            </div>
+            <h3 className="text-2xl font-black text-white">{arc.title}</h3>
+            <p className="text-sm text-blue-100 leading-relaxed font-medium">{arc.summary}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AdminDashboard({ housemates, housematesList, rounds, setRounds, announcements, setAnnouncements, resultsConfig, setResultsConfig, votes, setVotes, currentUser, setCurrentUser, nominations, setNominations, activeRound, weeklyStatuses, setWeeklyStatuses, archives, setArchives, showAlert, goBack }) {
+  const [adminPassword, setAdminPassword] = useState('');
+  const [activeAdminTab, setActiveAdminTab] = useState('leaderboard'); 
+
+  const [editingHmId, setEditingHmId] = useState(null);
+  const [nameInput, setNameInput] = useState('');
+  const [bioInput, setBioInput] = useState('');
+  const [photoInput, setPhotoInput] = useState('');
+  const [codeInput, setCodeInput] = useState('');
+
+  const fileInputRef = useRef(null);
+
+  const handleAdminLogin = (e) => {
+    e.preventDefault();
+    if (adminPassword === '2009CAPYBARA18') {
+      setCurrentUser({ role: 'admin' });
+    } else {
+      showAlert('Incorrect administrator password.');
+    }
+  };
+
+  if (!currentUser || currentUser.role !== 'admin') {
+    return (
+      <div className="max-w-md mx-auto px-4 py-20 animate-fadeIn">
+        <div className="bg-blue-950 border-4 border-[#fbbf24] rounded-3xl p-8 shadow-2xl space-y-6">
+          <div className="text-center space-y-3">
+            <div className="w-14 h-14 rounded-full bg-[#fbbf24] flex items-center justify-center text-blue-950 mx-auto shadow-lg">
+              <Lock className="w-7 h-7" />
+            </div>
+            <h2 className="text-2xl font-black text-white">ADMINISTRATOR LOGIN</h2>
+            <p className="text-xs text-blue-200 font-medium">Restricted secure management gateway.</p>
+          </div>
+
+          <form onSubmit={handleAdminLogin} className="space-y-4">
+            <div className="space-y-1">
+              <label className="text-xs font-black uppercase text-[#fbbf24]">Admin Password</label>
+              <input 
+                type="password" 
+                value={adminPassword} 
+                onChange={e => setAdminPassword(e.target.value)} 
+                placeholder="Enter password..." 
+                className="w-full bg-blue-900 border-2 border-blue-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#fbbf24] transition"
+                required
+              />
+            </div>
+            <button type="submit" className="w-full py-4 bg-[#fbbf24] text-blue-950 font-black rounded-xl hover:bg-amber-400 transition duration-300 shadow-lg transform active:scale-95">
+              AUTHENTICATE ADMIN
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  const weekKey = `week_${activeRound.week}`;
+  const currentWeekNominations = nominations[weekKey] || {}; 
+
+  const nominationTally = {};
+  housematesList.forEach(h => {
+    nominationTally[h.id] = { id: h.id, name: h.name, points: 0, receivedFrom: [] };
+  });
+
+  Object.entries(currentWeekNominations).forEach(([nominatorId, sub]) => {
+    const nominator = housematesList.find(h => h.id === nominatorId);
+    const nominatorName = nominator ? nominator.name : nominatorId;
+
+    if (sub.first && nominationTally[sub.first.to]) {
+      nominationTally[sub.first.to].points += sub.first.points;
+      nominationTally[sub.first.to].receivedFrom.push({
+        from: nominatorName,
+        points: sub.first.points,
+        reason: sub.first.reason
+      });
+    }
+    if (sub.second && nominationTally[sub.second.to]) {
+      nominationTally[sub.second.to].points += sub.second.points;
+      nominationTally[sub.second.to].receivedFrom.push({
+        from: nominatorName,
+        points: sub.second.points,
+        reason: sub.second.reason
+      });
+    }
+  });
+
+  const sortedLeaderboard = Object.values(nominationTally).sort((a, b) => b.points - a.points);
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoInput(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSaveHousemate = (e) => {
+    e.preventDefault();
+    if (editingHmId) {
+      housemates(prev => prev.map(h => h.id === editingHmId ? { ...h, name: nameInput, bio: bioInput, photo: photoInput || h.photo, code: codeInput } : h));
+      setEditingHmId(null);
+      showAlert('Housemate profile updated successfully.');
+    } else {
+      const newId = `HM-00${housematesList.length + 1}`;
+      const newHm = {
+        id: newId,
+        name: nameInput,
+        bio: bioInput,
+        photo: photoInput || 'https://placehold.co/400x500/0284c7/ffffff?text=Housemate',
+        status: 'Active',
+        code: codeInput || '12345'
+      };
+      housemates(prev => [...prev, newHm]);
+      showAlert(`Housemate ${newId} added successfully.`);
+    }
+    setNameInput('');
+    setBioInput('');
+    setPhotoInput('');
+    setCodeInput('');
+  };
+
+  const startEdit = (hm) => {
+    setEditingHmId(hm.id);
+    setNameInput(hm.name);
+    setBioInput(hm.bio);
+    setPhotoInput(hm.photo);
+    setCodeInput(hm.code);
+  };
+
+  const handleStatusChange = (id, newStatus) => {
+    housemates(prev => prev.map(h => {
+      if (h.id === id) {
+        return { ...h, status: newStatus };
+      }
+      return h;
+    }));
+
+    if (newStatus === 'Evicted') {
+      setWeeklyStatuses(prev => ({
+        ...prev,
+        [id]: { ...prev[id], [activeRound.week]: 'Evicted' }
+      }));
+    }
+
+    showAlert(`Housemate status updated to ${newStatus}. Privileges automatically adjusted.`);
+  };
+
+  const handleStartNewWeek = () => {
+    const nextWeekNum = activeRound.week + 1;
+    
+    setArchives(prev => [
+      { week: activeRound.week, title: `Week ${activeRound.week} Competition & Results`, summary: `Completed week ${activeRound.week} cycle with official nominees and eviction results.` },
+      ...prev
+    ]);
+
+    setRounds(prev => [...prev, { id: `round-${nextWeekNum}`, week: nextWeekNum, status: 'Voting Open', method: 'Online', confirmed: false, nominees: [] }]);
+
+    setVotes(prev => ({
+      ...prev,
+      [nextWeekNum]: { save: {}, evict: {} }
+    }));
+
+    setResultsConfig({ showPartial: true, showFinal: false, evictionPublished: false, votingManuallyClosed: false });
+
+    showAlert(`Week ${nextWeekNum} has officially started! Nomination ballots and voting tallies have been reset.`);
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8 animate-fadeIn">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b-2 border-blue-900 pb-6 gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-white">ADMINISTRATOR CONTROL PANEL</h1>
+          <p className="text-sm text-blue-200 font-medium">Manage housemate statuses, nomination leaderboards, weekly cycles, and results.</p>
+        </div>
+        <div className="flex items-center space-x-3">
+          <button 
+            onClick={handleStartNewWeek}
+            className="px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-blue-950 font-black text-xs rounded-xl shadow-xl flex items-center space-x-2 transition duration-300 transform active:scale-95"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span>START NEXT WEEK (RESET CYCLE)</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {['leaderboard', 'housemates', 'rounds', 'voting', 'results', 'content'].map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveAdminTab(tab)}
+            className={`px-4 py-2.5 text-xs font-black uppercase rounded-xl transition duration-300 transform active:scale-95 ${activeAdminTab === tab ? 'bg-[#fbbf24] text-blue-950 shadow-lg' : 'bg-blue-900 text-white hover:bg-blue-800'}`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {activeAdminTab === 'leaderboard' && (
+        <div className="bg-blue-950 border-4 border-[#fbbf24] rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl animate-fadeIn">
+          <div className="border-b-2 border-blue-900 pb-4 flex items-center justify-between">
+            <div>
+              <h3 className="text-2xl font-black text-[#fbbf24]">HOUSEMATE NOMINATION LEADERBOARD (ADMIN SECURE)</h3>
+              <p className="text-xs text-blue-200 font-medium">Aggregated points and confidential reasons for Week {activeRound.week}.</p>
+            </div>
+            <span className="bg-red-500 text-white text-xs font-black px-3 py-1 rounded-full uppercase">Confidential</span>
+          </div>
+
+          <div className="space-y-6">
+            {sortedLeaderboard.map((entry, index) => (
+              <div key={entry.id} className="bg-blue-900 border-2 border-blue-800 rounded-2xl p-6 space-y-4 shadow-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-blue-800 pb-3">
+                  <div className="flex items-center space-x-3">
+                    <span className="w-8 h-8 rounded-full bg-[#fbbf24] text-blue-950 font-black text-sm flex items-center justify-center">
+                      #{index + 1}
+                    </span>
+                    <div>
+                      <h4 className="text-lg font-black text-white">{entry.name}</h4>
+                      <span className="text-xs font-mono text-[#fbbf24]">{entry.id}</span>
+                    </div>
+                  </div>
+                  <div className="bg-blue-950 px-4 py-2 rounded-xl border border-blue-800 text-right">
+                    <span className="text-xs text-blue-300 font-bold uppercase">Total Points: </span>
+                    <span className="text-xl font-black text-[#fbbf24] font-mono">{entry.points}</span>
+                  </div>
+                </div>
+
+                {entry.receivedFrom.length === 0 ? (
+                  <p className="text-xs text-blue-300 italic">No nomination points received this week.</p>
+                ) : (
+                  <div className="space-y-3 pt-2">
+                    <h5 className="text-xs font-black uppercase text-blue-300">Nomination Ballots Received:</h5>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {entry.receivedFrom.map((ballot, bIdx) => (
+                        <div key={bIdx} className="bg-blue-950 p-4 rounded-xl border border-blue-800 space-y-1">
+                          <div className="flex justify-between text-xs font-bold text-[#fbbf24]">
+                            <span>From: {ballot.from}</span>
+                            <span>+{ballot.points} pts</span>
+                          </div>
+                          <p className="text-xs text-blue-100 italic">"{ballot.reason}"</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeAdminTab === 'housemates' && (
+        <div className="space-y-8 animate-fadeIn">
+          <div className="bg-blue-950 border-4 border-[#fbbf24] rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
+            <h3 className="text-xl font-black text-[#fbbf24]">{editingHmId ? `Edit Housemate (${editingHmId})` : 'Add New Housemate'}</h3>
+            <form onSubmit={handleSaveHousemate} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <input 
+                type="text" 
+                value={nameInput} 
+                onChange={e => setNameInput(e.target.value)} 
+                placeholder="Full Name / Display Name" 
+                className="bg-blue-900 border-2 border-blue-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#fbbf24]"
+                required
+              />
+              <input 
+                type="text" 
+                value={codeInput} 
+                onChange={e => setCodeInput(e.target.value)} 
+                placeholder="Unique Access Code (e.g. ABC12)" 
+                className="bg-blue-900 border-2 border-blue-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#fbbf24]"
+                required
+              />
+              <div className="sm:col-span-2 space-y-2 bg-blue-900 p-4 rounded-xl border border-blue-800">
+                <label className="text-xs font-black uppercase text-[#fbbf24]">Housemate Photograph (Upload File or Enter URL)</label>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input 
+                    type="file" 
+                    ref={fileInputRef}
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="text-xs text-blue-200 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-[#fbbf24] file:text-blue-950 hover:file:bg-amber-400 cursor-pointer"
+                  />
+                  <input 
+                    type="text" 
+                    value={photoInput} 
+                    onChange={e => setPhotoInput(e.target.value)} 
+                    placeholder="Or paste Image URL here..." 
+                    className="flex-1 bg-blue-950 border-2 border-blue-800 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-[#fbbf24]"
+                  />
+                </div>
+              </div>
+              <textarea 
+                value={bioInput} 
+                onChange={e => setBioInput(e.target.value)} 
+                placeholder="Short biography..." 
+                className="bg-blue-900 border-2 border-blue-800 rounded-xl p-4 text-sm text-white h-24 sm:col-span-2 focus:outline-none focus:border-[#fbbf24]"
+                required
+              />
+              <div className="sm:col-span-2 flex space-x-3">
+                <button type="submit" className="px-6 py-3.5 bg-[#fbbf24] text-blue-950 font-black rounded-xl hover:bg-amber-400 transition duration-300 shadow-lg transform active:scale-95">
+                  {editingHmId ? 'Update Housemate' : 'Add Housemate'}
+                </button>
+                {editingHmId && (
+                  <button type="button" onClick={() => { setEditingHmId(null); setNameInput(''); setBioInput(''); setPhotoInput(''); setCodeInput(''); }} className="px-6 py-3.5 bg-blue-900 text-white rounded-xl hover:bg-blue-800 transition font-bold">
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {housematesList.map(hm => (
+              <div key={hm.id} className="bg-blue-950 border-3 border-blue-900 rounded-3xl p-6 space-y-4 shadow-xl flex flex-col justify-between">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-blue-950 bg-[#fbbf24] px-3 py-1 rounded-full">{hm.id}</span>
+                    <span className={`text-[10px] uppercase font-black px-2 py-0.5 rounded-full ${hm.status === 'Active' ? 'bg-emerald-500 text-blue-950' : hm.status === 'Suspended' ? 'bg-amber-500 text-blue-950' : 'bg-red-500 text-white'}`}>{hm.status}</span>
+                  </div>
+                  <img src={hm.photo} alt={hm.name} className="w-20 h-20 mx-auto rounded-full object-cover border-2 border-[#fbbf24]" />
+                  <h4 className="font-black text-white text-lg text-center">{hm.name}</h4>
+                  <p className="text-xs text-blue-200 line-clamp-2 font-medium">{hm.bio}</p>
+                </div>
+                <div className="pt-4 border-t border-blue-900 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <button onClick={() => startEdit(hm)} className="text-xs font-black text-[#fbbf24] hover:underline flex items-center space-x-1">
+                      <Edit2 className="w-3.5 h-3.5" />
+                      <span>Edit Profile</span>
+                    </button>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-black text-blue-300">Set Status (Revokes Privileges if Evicted/Suspended):</label>
+                    <select 
+                      value={hm.status}
+                      onChange={(e) => handleStatusChange(hm.id, e.target.value)}
+                      className="w-full bg-blue-900 border border-blue-700 rounded-xl px-3 py-1.5 text-xs text-white font-bold focus:outline-none focus:border-[#fbbf24]"
+                    >
+                      <option value="Active">Active (Eligible)</option>
+                      <option value="Suspended">Suspended (Revoked)</option>
+                      <option value="Evicted">Evicted (Revoked)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeAdminTab === 'rounds' && (
+        <div className="bg-blue-950 border-4 border-[#fbbf24] rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl animate-fadeIn">
+          <h3 className="text-xl font-black text-[#fbbf24]">Active Weekly Round & Nominees Configuration</h3>
+          <div className="space-y-4">
+            {rounds.map((rnd, idx) => (
+              <div key={idx} className="bg-blue-900 border-2 border-blue-800 rounded-2xl p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-black text-white text-lg">Week {rnd.week} ({rnd.status})</h4>
+                  <span className="text-xs font-black text-blue-950 bg-[#fbbf24] px-3 py-1 rounded-full">Method: {rnd.method}</span>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase text-blue-300">Official Nominees (Comma separated IDs)</label>
+                  <input 
+                    type="text" 
+                    defaultValue={rnd.nominees.join(', ')} 
+                    onBlur={(e) => {
+                      const ids = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                      setRounds(prev => prev.map((r, i) => i === idx ? { ...r, nominees: ids } : r));
+
+                      setWeeklyStatuses(prev => {
+                        const updated = { ...prev };
+                        housematesList.forEach(hm => {
+                          if (!updated[hm.id]) updated[hm.id] = {};
+                          if (ids.includes(hm.id)) {
+                            updated[hm.id][rnd.week] = 'Nominated';
+                          } else if (updated[hm.id][rnd.week] !== 'Evicted') {
+                            updated[hm.id][rnd.week] = 'Safe';
+                          }
+                        });
+                        return updated;
+                      });
+
+                      showAlert('Nominee list updated and weekly tracker synchronized.');
+                    }}
+                    className="w-full bg-blue-950 border-2 border-blue-800 rounded-xl px-4 py-3 text-sm text-white font-bold"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeAdminTab === 'voting' && (
+        <div className="bg-blue-950 border-4 border-[#fbbf24] rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl animate-fadeIn">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b-2 border-blue-900 pb-4 gap-4">
+            <div>
+              <h3 className="text-xl font-black text-[#fbbf24]">Voting Control & Aggregate Totals</h3>
+              <p className="text-xs text-blue-200">Manually open or close public and housemate voting anytime.</p>
+            </div>
+            <button 
+              onClick={() => {
+                const newState = !resultsConfig.votingManuallyClosed;
+                setResultsConfig(prev => ({ ...prev, votingManuallyClosed: newState }));
+                showAlert(`Voting has been manually ${newState ? 'CLOSED' : 'OPENED'} by administrator.`);
+              }}
+              className={`px-5 py-3 rounded-xl font-black text-xs uppercase shadow transition duration-300 transform active:scale-95 ${resultsConfig.votingManuallyClosed ? 'bg-emerald-500 text-blue-950' : 'bg-red-600 text-white'}`}
+            >
+              {resultsConfig.votingManuallyClosed ? '🟢 OPEN VOTING NOW' : '🔒 CLOSE VOTING MANUALLY'}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
+            <div className="bg-blue-900 border-2 border-blue-800 rounded-2xl p-6 space-y-4">
+              <h4 className="font-black text-emerald-400 text-sm uppercase">Vote to Save Totals</h4>
+              <div className="space-y-2 font-mono text-sm font-bold">
+                {Object.entries(votes[activeRound.week]?.save || {}).map(([id, count]) => (
+                  <div key={id} className="flex justify-between border-b border-blue-800 pb-2">
+                    <span className="text-white">{id}</span>
+                    <span className="text-emerald-400">{count} votes</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="bg-blue-900 border-2 border-blue-800 rounded-2xl p-6 space-y-4">
+              <h4 className="font-black text-red-400 text-sm uppercase">Vote to Evict Totals</h4>
+              <div className="space-y-2 font-mono text-sm font-bold">
+                {Object.entries(votes[activeRound.week]?.evict || {}).map(([id, count]) => (
+                  <div key={id} className="flex justify-between border-b border-blue-800 pb-2">
+                    <span className="text-white">{id}</span>
+                    <span className="text-red-400">{count} votes</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeAdminTab === 'results' && (
+        <div className="bg-blue-950 border-4 border-[#fbbf24] rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl animate-fadeIn">
+          <h3 className="text-xl font-black text-[#fbbf24]">Results Publication Controls</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="bg-blue-900 p-6 rounded-2xl border-2 border-blue-800 space-y-4 flex flex-col justify-between">
+              <div>
+                <h4 className="font-black text-white text-base">Partial Tally Graphic</h4>
+                <p className="text-xs text-blue-200 mt-1 font-medium">Control visibility of the partial tally board.</p>
+              </div>
+              <button 
+                onClick={() => setResultsConfig(prev => ({ ...prev, showPartial: !prev.showPartial }))}
+                className={`w-full py-3 rounded-xl font-black text-xs uppercase shadow transition duration-300 transform active:scale-95 ${resultsConfig.showPartial ? 'bg-emerald-500 text-blue-950' : 'bg-blue-950 text-white border border-blue-700'}`}
+              >
+                {resultsConfig.showPartial ? 'Visible (Click to Hide)' : 'Hidden (Click to Show)'}
+              </button>
+            </div>
+
+            <div className="bg-blue-900 p-6 rounded-2xl border-2 border-blue-800 space-y-4 flex flex-col justify-between">
+              <div>
+                <h4 className="font-black text-white text-base">Final Results Graphic</h4>
+                <p className="text-xs text-blue-200 mt-1 font-medium">Publish final scores and rankings to the public.</p>
+              </div>
+              <button 
+                onClick={() => setResultsConfig(prev => ({ ...prev, showFinal: !prev.showFinal }))}
+                className={`w-full py-3 rounded-xl font-black text-xs uppercase shadow transition duration-300 transform active:scale-95 ${resultsConfig.showFinal ? 'bg-emerald-500 text-blue-950' : 'bg-blue-950 text-white border border-blue-700'}`}
+              >
+                {resultsConfig.showFinal ? 'Published (Click to Hide)' : 'Unpublished (Click to Publish)'}
+              </button>
+            </div>
+
+            <div className="bg-blue-900 p-6 rounded-2xl border-2 border-blue-800 space-y-4 flex flex-col justify-between">
+              <div>
+                <h4 className="font-black text-white text-base">Eviction Announcement</h4>
+                <p className="text-xs text-blue-200 mt-1 font-medium">Mark the lowest-ranking nominee as evicted.</p>
+              </div>
+              <button 
+                onClick={() => {
+                  const newEvictionState = !resultsConfig.evictionPublished;
+                  setResultsConfig(prev => ({ ...prev, evictionPublished: newEvictionState }));
+
+                  if (newEvictionState && activeRound.nominees.length > 0) {
+                    const nomineeIds = activeRound.nominees;
+                    const saveMap = votes[activeRound.week]?.save || {};
+                    const evictMap = votes[activeRound.week]?.evict || {};
+                    const totSave = Object.values(saveMap).reduce((a, b) => a + b, 0) || 1;
+                    const totEvict = Object.values(evictMap).reduce((a, b) => a + b, 0) || 1;
+
+                    let lowestScore = 999;
+                    let evictedId = null;
+
+                    nomineeIds.forEach(id => {
+                      const sPct = ((saveMap[id] || 0) / totSave) * 100;
+                      const ePct = ((evictMap[id] || 0) / totEvict) * 100;
+                      const score = sPct - ePct;
+                      if (score < lowestScore) {
+                        lowestScore = score;
+                        evictedId = id;
+                      }
+                    });
+
+                    if (evictedId) {
+                      housemates(prev => prev.map(h => h.id === evictedId ? { ...h, status: 'Evicted' } : h));
+                      setWeeklyStatuses(prev => ({
+                        ...prev,
+                        [evictedId]: { ...prev[evictedId], [activeRound.week]: 'Evicted' }
+                      }));
+                    }
+                  }
+                }}
+                className={`w-full py-3 rounded-xl font-black text-xs uppercase shadow transition duration-300 transform active:scale-95 ${resultsConfig.evictionPublished ? 'bg-red-600 text-white' : 'bg-blue-950 text-white border border-blue-700'}`}
+              >
+                {resultsConfig.evictionPublished ? 'Eviction Published' : 'Publish Eviction'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeAdminTab === 'content' && (
+        <div className="bg-blue-950 border-4 border-[#fbbf24] rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl animate-fadeIn">
+          <h3 className="text-xl font-black text-[#fbbf24]">Content & Announcements Management</h3>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            const title = e.target.title.value;
+            const content = e.target.content.value;
+            setAnnouncements(prev => [{ id: Date.now(), title, date: new Date().toISOString().split('T')[0], content }, ...prev]);
+            e.target.reset();
+            showAlert('Announcement published successfully.');
+          }} className="space-y-4 bg-blue-900 p-6 rounded-2xl border-2 border-blue-800">
+            <h4 className="font-black text-white text-sm">Post New Announcement</h4>
+            <input type="text" name="title" placeholder="Announcement Title" className="w-full bg-blue-950 border-2 border-blue-800 rounded-xl px-4 py-3 text-sm text-white font-bold" required />
+            <textarea name="content" placeholder="Announcement content..." className="w-full bg-blue-950 border-2 border-blue-800 rounded-xl p-4 text-sm text-white h-28 font-medium" required />
+            <button type="submit" className="px-6 py-3.5 bg-[#fbbf24] text-blue-950 font-black rounded-xl hover:bg-amber-400 transition duration-300 shadow-lg transform active:scale-95">
+              PUBLISH ANNOUNCEMENT
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
